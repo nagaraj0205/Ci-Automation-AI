@@ -74,5 +74,5 @@ jobs:
           RUN_ID:           ${{ github.event.workflow_run.id }}
           TARGET_FILE:      index.html
           CHECKER:          check-html.py
-          BASE_BRANCH:      master
+          BASE_BRANCH:      main
           GH_TOKEN:         ${{ secrets.GITOPS_REPO_TOKEN }}
