@@ -20,12 +20,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # gpt-oss is open-weight, so it is ON_DEMAND in us-west-2 and needs no model
+  # gpt-oss is open-weight, so it is ON_DEMAND in us-east-1 and needs no model
   # access request -- the bare ID works, no "us." inference profile. The other
   # OpenAI model here, openai.gpt-5.6-terra, is gated and returns
   # AccessDeniedException until AWS grants the account access.
-  BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
-  BEDROCK_REGION:   us-west-2
+  BEDROCK_MODEL_ID: openai.gpt-oss-20b-1:0
+  BEDROCK_REGION:   us-east-1
 
 jobs:
   autofix:
