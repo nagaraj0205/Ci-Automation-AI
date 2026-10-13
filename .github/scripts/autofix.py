@@ -35,7 +35,7 @@ TARGET = os.environ.get("TARGET_FILE", "index.html")
 CHECKER = os.environ.get("CHECKER", "check-html.py")
 BASE_BRANCH = os.environ.get("BASE_BRANCH", "master")
 
-MAX_LOG_CHARS = 20000   # tail of the failure log we send to the model
+MAX_LOG_CHARS = 8000   # tail of the failure log we send to the model
 MAX_ATTEMPTS = 2        # one first try, one retry with the checker's complaint
 
 # The model wraps the file in these so we can pull it back out without
@@ -139,7 +139,7 @@ def ask_the_model(log, checker_src, current, complaint=None):
         modelId=MODEL_ID,
         system=[{"text": SYSTEM}],
         messages=[{"role": "user", "content": [{"text": "\n".join(parts)}]}],
-        inferenceConfig={"maxTokens": 16000},
+        inferenceConfig={"maxTokens": 4096},
     )
     blocks = resp["output"]["message"]["content"]
     return "\n".join(b["text"] for b in blocks if "text" in b)
@@ -239,8 +239,21 @@ def main():
         try:
             reply = ask_the_model(log, checker_src, original, complaint)
         except ClientError as e:
-            print("Bedrock refused the call: " + str(e))
+            error_code = e.response.get("Error", {}).get("Code", "")
+            error_message = e.response.get("Error", {}).get("Message", "")
+
             write(TARGET, original)
+
+            if (
+                error_code == "ThrottlingException"
+                and "too many tokens per day" in error_message.lower()
+            ):
+                print("ERROR: Amazon Bedrock daily token quota exhausted.")
+                print("No further retries will be attempted for this error.")
+                print("Wait for quota reset or configure another accessible model.")
+                return 1
+
+            print("Bedrock refused the call: " + str(e))
             return 1
 
         fixed = extract(reply)
