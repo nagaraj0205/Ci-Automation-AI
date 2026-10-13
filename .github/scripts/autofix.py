@@ -139,7 +139,7 @@ def ask_the_model(log, checker_src, current, complaint=None):
         modelId=MODEL_ID,
         system=[{"text": SYSTEM}],
         messages=[{"role": "user", "content": [{"text": "\n".join(parts)}]}],
-        inferenceConfig={"maxTokens": 16000},
+        inferenceConfig={"maxTokens": 4096},
     )
     blocks = resp["output"]["message"]["content"]
     return "\n".join(b["text"] for b in blocks if "text" in b)
