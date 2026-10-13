@@ -1,0 +1,81 @@
+name: Self-Healing Deploy
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+#dj
+env:
+  FILE:     index.html
+  BUCKET:   6f-oct-1-2026
+  BACKUP:   backups/index-previous.html
+  REGION:   ap-southeast-1
+  DIST_ID:  E37QAS8Q7X7WMG
+  SITE_URL: https://d2ymiia5hgbng8.cloudfront.net
+  MARKER:   SITE-OK
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.REGION }}
+
+      - name: Check the file
+        run: python check-html.py "$FILE"
+
+      - name: Upload to S3
+        run: aws s3 cp "$FILE" "s3://$BUCKET/$FILE" --cache-control no-cache
+
+      - name: Clear CloudFront cache
+        run: |
+          ID=$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" \
+                 --paths "/*" --query 'Invalidation.Id' --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$DIST_ID" --id "$ID"
+
+      - name: Check the live website
+        run: |
+          # -L is required: CloudFront redirects http to https
+          curl -fsSL --retry 5 --retry-delay 10 -o page.html "$SITE_URL"
+          test "$(grep -c "$MARKER" page.html)" -eq 1
+          test "$(wc -c < page.html)" -ge 1000
+          echo "Site is healthy."
+
+      # Only runs when the check above passed, so the backup is always
+      # the last version that actually worked.
+      - name: Remember this version as the good one
+        run: aws s3 cp "s3://$BUCKET/$FILE" "s3://$BUCKET/$BACKUP"
+
+      - name: Put the last good version back
+        if: failure()
+        run: |
+          aws s3 cp "s3://$BUCKET/$BACKUP" "s3://$BUCKET/$FILE" --cache-control no-cache
+          ID=$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" \
+                 --paths "/*" --query 'Invalidation.Id' --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$DIST_ID" --id "$ID"
+          curl -fsSL --retry 5 --retry-delay 10 -o page.html "$SITE_URL"
+          grep -q "$MARKER" page.html
+          echo "::warning::Deploy failed. The last good version is back and healthy."
+
+      - name: Report
+        if: always()
+        run: |
+          echo "### Deploy report" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Site: $SITE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Roll back by hand:" >> "$GITHUB_STEP_SUMMARY"
+          echo "  \`aws s3 cp s3://$BUCKET/$BACKUP s3://$BUCKET/$FILE --cache-control no-cache\`" >> "$GITHUB_STEP_SUMMARY"

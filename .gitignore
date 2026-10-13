@@ -1,0 +1,32 @@
+# ---- videos (they are big, and GitHub has a 100 MB per-file limit) ----
+
+# any video file, anywhere in the repo
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.m4v
+
+# the whole render output folder under .github  (Manim writes here)
+.github/workflows/media/
+
+# the video folder in the project root
+video/
+
+
+# ---- Python junk ----
+__pycache__/
+*.pyc
+
+
+# ---- Terraform: state files can contain passwords, never commit them ----
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+
+# ---- editor / OS junk ----
+.DS_Store
+Thumbs.db

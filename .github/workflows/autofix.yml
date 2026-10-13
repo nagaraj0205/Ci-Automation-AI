@@ -1,0 +1,78 @@
+name: 3 - Auto-Fix Agent
+
+# Optional. Runs only when Self-Healing Deploy fails.
+#
+# Uses a model on Amazon Bedrock through the Converse API, so the only
+# credentials involved are the AWS ones already in this repo's secrets.
+# No Anthropic account, no OpenAI account, no API key of any kind.
+#
+# The model choice is just the BEDROCK_MODEL_ID below. Any Bedrock model that
+# supports Converse will work; swapping vendors is a one-line change.
+
+on:
+  workflow_run:
+    workflows: [ "Self-Healing Deploy" ]
+    types: [ completed ]
+  workflow_dispatch:
+
+concurrency:
+  group: autofix
+  cancel-in-progress: true
+
+env:
+  # gpt-oss is open-weight, so it is ON_DEMAND in us-west-2 and needs no model
+  # access request -- the bare ID works, no "us." inference profile. The other
+  # OpenAI model here, openai.gpt-5.6-terra, is gated and returns
+  # AccessDeniedException until AWS grants the account access.
+  BEDROCK_MODEL_ID: openai.gpt-oss-120b-1:0
+  BEDROCK_REGION:   us-west-2
+
+jobs:
+  autofix:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Log in to AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.BEDROCK_REGION }}
+
+      # The runner image ships an apt-packaged boto3 in
+      # /usr/lib/python3/dist-packages that predates the Converse API, and a
+      # plain "pip install boto3" sees it, reports "already satisfied" and
+      # leaves it in place. setup-python gives us an interpreter of our own,
+      # and the floor below is the first botocore that has client.converse.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the AWS SDK
+        run: python -m pip install --quiet --upgrade "boto3>=1.34.116"
+
+      - name: Show what we actually got
+        run: python -c "import botocore, boto3; print('boto3', boto3.__version__, '/ botocore', botocore.__version__)"
+
+      - name: Diagnose the failure and open a fix PR
+        run: python .github/scripts/autofix.py
+        env:
+          BEDROCK_MODEL_ID: ${{ env.BEDROCK_MODEL_ID }}
+          BEDROCK_REGION:   ${{ env.BEDROCK_REGION }}
+          RUN_ID:           ${{ github.event.workflow_run.id }}
+          TARGET_FILE:      index.html
+          CHECKER:          check-html.py
+          BASE_BRANCH:      master
+          GH_TOKEN:         ${{ secrets.GITHUB_TOKEN }}

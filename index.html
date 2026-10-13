@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deploy Demo v1</title>
+
+<!-- ===================================================================
+     The line just below this comment is the HEALTH MARKER.
+
+     The deploy pipeline greps the live page for that exact word. If the
+     marker is missing or misspelled, the deploy FAILS and the pipeline
+     rolls the website back to the previous version.
+
+     IMPORTANT: this must be the ONgLY place in the file where those
+     7 characters appear literally. Everywhere else on the page the
+     name is written with an HTML entity (SITE&#45;OK) so that it
+     LOOKS the same in the browser but does NOT match the grep.
+     =================================================================== -->
+<!-- SITE-OK -->
+
+<style>
+  :root {
+    --bg:   #f6f7f9;
+    --card: #ffffff;
+    --text: #1a1d21;
+    --muted:#5c6570;
+    --line: #e3e6ea;
+    --good: #1a7f4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:   #14171a;
+      --card: #1d2126;
+      --text: #e8eaed;
+      --muted:#9aa4b0;
+      --line: #2e343b;
+      --good: #4ade80;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 40px 20px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  main { max-width: 640px; margin: 0 auto; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  h2 { margin: 0 0 12px; font-size: 17px; }
+
+  .version {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--good);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  @media (prefers-color-scheme: dark) {
+    .version { color: #14171a; }
+  }
+
+  .status { color: var(--good); font-weight: 600; }
+  .muted  { color: var(--muted); }
+
+  code {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 14px;
+  }
+
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    overflow-x: auto;
+  }
+  pre code { background: none; border: none; padding: 0; }
+
+  ol { padding-left: 22px; }
+  li { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="card">
+    <span class="version">VERSION 1.0.1</span>
+    <h1 style="margin-top:14px">Deploy Demo by 6FSchool</h1>
+    <p class="muted" style="margin:0">
+      A tiny page for practising an S3 &plus; CloudFront deploy pipeline.
+    </p>
+    <p style="margin:18px 0 0">
+      Health check: <span class="status">&check; passing</span>
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>How the pipeline checks this page</h2>
+    <p>After uploading, the workflow downloads the live page and looks for
+       one specific word inside it:</p>
+<pre><code>curl -sf https://YOUR-SITE/ -o page.html
+grep -q "SITE&#45;OK" page.html</code></pre>
+    <p class="muted">Marker found &rarr; deploy succeeds.<br>
+       Marker missing &rarr; deploy fails and the old version is restored.</p>
+  </div>
+
+  <div class="card">
+    <h2>Try it yourself</h2>
+    <ol>
+      <li>Change <code>VERSION 1</code> above to <code>VERSION 2</code>,
+          commit and push. Watch the pipeline go green, then reload the
+          live site &mdash; you should see version 2.</li>
+      <li>Now break it on purpose. Find the
+          <code>&lt;!&minus;&minus; SITE&#45;OK &minus;&minus;&gt;</code>
+          comment near the top of this file and delete it. Push again.</li>
+      <li>Watch the deploy fail, then watch it put version 2 back by itself.
+          The live site never shows the broken page.</li>
+      <li>Put the marker back to return to normal.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Why the marker is written oddly on this page</h2>
+    <p>The check is a plain text search, so it matches the marker
+       <em>anywhere</em> in the file &mdash; including inside ordinary
+       sentences. If the name were spelled out normally in the text above,
+       deleting the real marker would still leave matches behind, and the
+       health check could never fail.</p>
+    <p>So every mention on this page except the real marker is written as
+       <code>SITE&amp;#45;OK</code>. The browser shows a normal hyphen;
+       <code>grep</code> sees something different. That keeps exactly
+       <strong>one</strong> match in the file.</p>
+    <p class="muted">Check it for yourself:
+       <code>grep -c "SITE&#45;OK" sample.html</code> should print
+       <code>1</code>.</p>
+  </div>
+
+
+</body>
+</html>
