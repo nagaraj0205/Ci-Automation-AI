@@ -28,8 +28,8 @@ import botocore
 from botocore.exceptions import ClientError
 
 # ---- settings, all77 overridable from the workflow ----
-MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "openai.gpt-oss-20b-1:0") #openai.gpt-6-astra
-REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
+MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "openai.gpt-oss-120b-1:0")
+REGION = os.environ.get("BEDROCK_REGION", "us-west-2")
 RUN_ID = os.environ.get("RUN_ID", "")
 TARGET = os.environ.get("TARGET_FILE", "index.html")
 CHECKER = os.environ.get("CHECKER", "check-html.py")
@@ -139,7 +139,7 @@ def ask_the_model(log, checker_src, current, complaint=None):
         modelId=MODEL_ID,
         system=[{"text": SYSTEM}],
         messages=[{"role": "user", "content": [{"text": "\n".join(parts)}]}],
-        inferenceConfig={"maxTokens": 4096},
+        inferenceConfig={"maxTokens": 16000},
     )
     blocks = resp["output"]["message"]["content"]
     return "\n".join(b["text"] for b in blocks if "text" in b)
