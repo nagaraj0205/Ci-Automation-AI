@@ -28,8 +28,8 @@ import botocore
 from botocore.exceptions import ClientError
 
 # ---- settings, all77 overridable from the workflow ----
-MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "openai.gpt-oss-20b-1:0")
-REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
+MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-6")
+REGION = os.environ.get("BEDROCK_REGION", "us-west-2")
 RUN_ID = os.environ.get("RUN_ID", "")
 TARGET = os.environ.get("TARGET_FILE", "index.html")
 CHECKER = os.environ.get("CHECKER", "check-html.py")
