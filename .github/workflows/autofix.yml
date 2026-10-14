@@ -24,8 +24,8 @@ env:
   # access request -- the bare ID works, no "us." inference profile. The other
   # OpenAI model here, openai.gpt-5.6-terra, is gated and returns
   # AccessDeniedException until AWS grants the account access.
-  BEDROCK_MODEL_ID: in.openai.gpt-5.6-terra
-  BEDROCK_REGION:   ap-south-1
+  BEDROCK_MODEL_ID: openai.gpt-oss-20b-1:0
+  BEDROCK_REGION:   us-east-1
 
 jobs:
   autofix:
