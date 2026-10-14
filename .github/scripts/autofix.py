@@ -2,10 +2,11 @@
 """
 Gemini-powered auto-fix agent for the Self-Healing Deploy pipeline.
 
-The model proposes a complete corrected target file. The repository's checker
-is the authority: a pull request is opened only if that checker passes.
+Gemini proposes a corrected target file. The repository checker is the
+authority: a pull request is opened only after that checker passes.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -129,7 +130,13 @@ def run_checker():
 
 
 def open_pull_request(check_output):
+    """
+    Commit the validated target to the run-specific branch and ensure a PR
+    exists. This handles both a new branch and a branch left behind by a
+    previous run where PR creation failed.
+    """
     branch = "autofix/run-" + (RUN_ID or "manual")
+    validated_content = read(TARGET)
 
     sh(["git", "config", "user.name", "github-actions[bot]"])
     sh([
@@ -137,27 +144,87 @@ def open_pull_request(check_output):
         "41898282+github-actions[bot]@users.noreply.github.com",
     ])
 
-    existing = sh([
+    # Check whether the run-specific branch already exists remotely.
+    remote = sh([
         "git", "ls-remote", "--exit-code", "--heads", "origin", branch
     ])
-    if existing.returncode == 0:
+
+    if remote.returncode not in (0, 2):
+        print("Could not check the remote autofix branch.")
+        print(remote.stdout + remote.stderr)
+        return 1
+
+    if remote.returncode == 0:
         print(f"Branch {branch} already exists on the remote.")
-        print("Not opening a second PR for the same run.")
-        return 0
-
-    commands = [
-        ["git", "checkout", "-b", branch],
-        ["git", "add", TARGET],
-        ["git", "commit", "-m", f"fix: repair {TARGET} so the deploy check passes"],
-        ["git", "push", "-u", "origin", branch],
-    ]
-
-    for command in commands:
-        result = sh(command)
-        if result.returncode != 0:
-            print("Git step failed: " + " ".join(command))
-            print(result.stdout + result.stderr)
+        fetch = sh(["git", "fetch", "origin", branch])
+        if fetch.returncode != 0:
+            print(fetch.stdout + fetch.stderr)
             return 1
+
+        checkout = sh(["git", "checkout", "-B", branch, f"origin/{branch}"])
+    else:
+        print(f"Creating new branch {branch}.")
+        checkout = sh(["git", "checkout", "-b", branch])
+
+    if checkout.returncode != 0:
+        print("Could not check out the autofix branch.")
+        print(checkout.stdout + checkout.stderr)
+        return 1
+
+    # Ensure the branch contains the exact file that just passed the checker.
+    write(TARGET, validated_content)
+
+    add = sh(["git", "add", TARGET])
+    if add.returncode != 0:
+        print(add.stdout + add.stderr)
+        return 1
+
+    staged_diff = sh(["git", "diff", "--cached", "--quiet"])
+    if staged_diff.returncode == 1:
+        commit = sh([
+            "git", "commit", "-m",
+            f"fix: repair {TARGET} so the deploy check passes",
+        ])
+        if commit.returncode != 0:
+            print("Git commit failed.")
+            print(commit.stdout + commit.stderr)
+            return 1
+    elif staged_diff.returncode != 0:
+        print(staged_diff.stdout + staged_diff.stderr)
+        return 1
+    else:
+        print("The remote branch already contains the validated target file.")
+
+    push = sh(["git", "push", "-u", "origin", branch])
+    if push.returncode != 0:
+        print("Git push failed.")
+        print(push.stdout + push.stderr)
+        return 1
+
+    # If an open PR already exists, report its URL instead of making a duplicate.
+    check_pr = sh([
+        "gh", "pr", "list",
+        "--head", branch,
+        "--base", BASE_BRANCH,
+        "--state", "open",
+        "--json", "number,state,url",
+    ])
+    if check_pr.returncode != 0:
+        print("Could not check existing pull requests.")
+        print(check_pr.stdout + check_pr.stderr)
+        return 1
+
+    try:
+        prs = json.loads(check_pr.stdout or "[]")
+    except json.JSONDecodeError as error:
+        print(f"Could not parse GitHub CLI pull request response: {error}")
+        return 1
+
+    if prs:
+        print("An open pull request already exists:")
+        for pr in prs:
+            print(f"PR #{pr['number']} ({pr['state']}): {pr['url']}")
+        return 0
 
     body = (
         f"The deploy failed and `{CHECKER}` rejected `{TARGET}`. "
@@ -166,7 +233,7 @@ def open_pull_request(check_output):
         f"```\n{check_output}\n```\n\n"
         "The workflow ran the repository checker before opening this PR. "
         "Please review the diff before merging.\n\n"
-        f"### How this fix was produced\n\n"
+        "### How this fix was produced\n\n"
         f"Gemini model: `{MODEL_ID}` via the Google Gemini API.\n\n"
         f"Generated from workflow run `{RUN_ID or 'manual'}`.\n"
     )
@@ -179,6 +246,13 @@ def open_pull_request(check_output):
         "--body", body,
     ])
     print(result.stdout + result.stderr)
+
+    if result.returncode != 0:
+        print(
+            "Pull request creation failed. Confirm that GitHub Actions is "
+            "allowed to create pull requests and that the workflow has "
+            "'pull-requests: write' permission."
+        )
     return result.returncode
 
 
@@ -200,6 +274,7 @@ def main():
             print("The checker passes already. No Gemini request is needed.")
             print(checker_output)
             return 0
+
         log = checker_output
         if not looks_like_a_code_problem(log):
             print("The checker output does not identify a repairable target-file failure.")
@@ -209,7 +284,10 @@ def main():
     checker_src = read(CHECKER)
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        print(f"--- attempt {attempt} of {MAX_ATTEMPTS}: asking Gemini model {MODEL_ID} ---")
+        print(
+            f"--- attempt {attempt} of {MAX_ATTEMPTS}: "
+            f"asking Gemini model {MODEL_ID} ---"
+        )
         try:
             reply = ask_the_model(log, checker_src, original)
         except Exception as error:
