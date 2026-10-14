@@ -1,18 +1,12 @@
 name: 3 - Auto-Fix Agent
 
-# Optional. Runs only when Self-Healing Deploy fails.
-#
-# Uses a model on Amazon Bedrock through the Converse API, so the only
-# credentials involved are the AWS ones already in this repo's secrets.
-# No Anthropic account, no OpenAI account, no API key of any kind.
-#
-# The model choice is just the BEDROCK_MODEL_ID below. Any Bedrock model that
-# supports Converse will work; swapping vendors is a one-line change.
+# Runs after Self-Healing Deploy fails, or manually from the Actions tab.
+# Uses Google Gemini API. Store the API key in the GEMINI_API_KEY repository secret.
 
 on:
   workflow_run:
-    workflows: [ "Self-Healing Deploy" ]
-    types: [ completed ]
+    workflows: ["Self-Healing Deploy"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -20,16 +14,16 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # gpt-oss is open-weight, so it is ON_DEMAND in us-west-2 and needs no model
-  # access request -- the bare ID works, no "us." inference profile. The other
-  # OpenAI model here, openai.gpt-5.6-terra, is gated and returns
-  # AccessDeniedException until AWS grants the account access.
-  BEDROCK_MODEL_ID: openai.gpt-oss-120b-1:0
-  BEDROCK_REGION:   us-west-2
+  GEMINI_MODEL: gemini-3.8-flash
 
 jobs:
   autofix:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    # For workflow_run, only process runs from this repository. This prevents
+    # exposing the Gemini secret to code submitted from a fork.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'failure' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -39,40 +33,46 @@ jobs:
       actions: read
 
     steps:
-      - uses: actions/checkout@v4
+      # On workflow_run, check out the trusted default branch so an untrusted
+      # branch cannot replace autofix.py and steal secrets. On manual runs,
+      # use the branch selected in the Actions UI.
+      - name: Checkout trusted workflow code
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.repository.default_branch || github.ref }}
           fetch-depth: 0
 
-      - name: Log in to AWS
-        uses: aws-actions/configure-aws-credentials@v4
+      # Only copy the target HTML from the failed commit; do not execute scripts
+      # from that commit. The job condition above excludes fork-originated runs.
+      - name: Get target HTML from failed commit
+        if: github.event_name == 'workflow_run'
+        env:
+          FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$FAILED_SHA"
+          git checkout "$FAILED_SHA" -- index.html
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.BEDROCK_REGION }}
+          python-version: "3.12"
 
-      # The runner image ships an apt-packaged boto3 in
-      # /usr/lib/python3/dist-packages that predates the Converse API, and a
-      # plain "pip install boto3" sees it, reports "already satisfied" and
-      # leaves it in place. setup-python gives us an interpreter of our own,
-      # and the floor below is the first botocore that has client.converse.
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - name: Install Gemini SDK
+        run: python -m pip install --quiet --upgrade "google-genai>=1.0.0"
 
-      - name: Install the AWS SDK
-        run: python -m pip install --quiet --upgrade "boto3>=1.34.116"
-
-      - name: Show what we actually got
-        run: python -c "import botocore, boto3; print('boto3', boto3.__version__, '/ botocore', botocore.__version__)"
+      - name: Show Python and Gemini SDK versions
+        run: |
+          python --version
+          python -c "import importlib.metadata; print('google-genai', importlib.metadata.version('google-genai'))"
 
       - name: Diagnose the failure and open a fix PR
         run: python .github/scripts/autofix.py
         env:
-          BEDROCK_MODEL_ID: ${{ env.BEDROCK_MODEL_ID }}
-          BEDROCK_REGION:   ${{ env.BEDROCK_REGION }}
-          RUN_ID:           ${{ github.event.workflow_run.id }}
-          TARGET_FILE:      index.html
-          CHECKER:          check-html.py
-          BASE_BRANCH:      main
-          GH_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ env.GEMINI_MODEL }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          TARGET_FILE: index.html
+          CHECKER: check-html.py
+          BASE_BRANCH: main
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
