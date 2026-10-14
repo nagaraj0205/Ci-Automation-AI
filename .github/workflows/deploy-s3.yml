@@ -14,11 +14,11 @@ permissions:
 #dj
 env:
   FILE:     index.html
-  BUCKET:   ai-assisted-bucket
+  BUCKET:   ai-assisted-bucket-1
   BACKUP:   backups/index-previous.html
-  REGION:   ap-south-1
-  DIST_ID:  E5DEZVXYBFMEY
-  SITE_URL: https://d1mdswuo84v5xf.cloudfront.net
+  REGION:   us-east-1
+  DIST_ID:  EEM2RFN5EP0W4
+  SITE_URL: https://dbhj0tp96pc3f.cloudfront.net
   MARKER:   SITE-OK
 
 jobs:
