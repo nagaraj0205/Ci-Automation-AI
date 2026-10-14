@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Deploy Demo v1</>
+<title>AI Automated CI Workflow | Deploy Health Monitor</title>
 
 <!-- ===================================================================
      The line just below this comment is the HEALTH MARKER.
@@ -12,7 +12,7 @@
      marker is missing or misspelled, the deploy FAILS and the pipeline
      rolls the website back to the previous version.
 
-     IMPORTANT: this must be the ONgLY place in the file where those
+     IMPORTANT: this must be the ONLY place in the file where those
      7 characters appear literally. Everywhere else on the page the
      name is written with an HTML entity (SITE&#45;OK) so that it
      LOOKS the same in the browser but does NOT match the grep.
@@ -21,140 +21,616 @@
 
 <style>
   :root {
-    --bg:   #f6f7f9;
+    --bg-gradient: radial-gradient(circle at 50% 0%, #edf2f7 0%, #f7fafc 60%, #edf2f7 100%);
+    --bg: #f8fafc;
     --card: #ffffff;
-    --text: #1a1d21;
-    --muted:#5c6570;
-    --line: #e3e6ea;
-    --good: #1a7f4b;
+    --card-border: #e2e8f0;
+    --card-hover-border: #cbd5e1;
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --text-subtle: #94a3b8;
+    --line: #e2e8f0;
+    --primary: #3b82f6;
+    --primary-bg: #eff6ff;
+    --primary-border: #bfdbfe;
+    --good: #10b981;
+    --good-bg: #ecfdf5;
+    --good-border: #a7f3d0;
+    --danger: #ef4444;
+    --danger-bg: #fef2f2;
+    --danger-border: #fecaca;
+    --terminal-bg: #0f172a;
+    --terminal-text: #f1f5f9;
+    --terminal-line: #1e293b;
+    --code-inline-bg: #f1f5f9;
+    --code-inline-text: #0284c7;
+    --code-inline-border: #e2e8f0;
   }
+
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg:   #14171a;
-      --card: #1d2126;
-      --text: #e8eaed;
-      --muted:#9aa4b0;
-      --line: #2e343b;
-      --good: #4ade80;
+      --bg-gradient: radial-gradient(circle at 50% 0%, #172033 0%, #0b0f17 65%, #070a0f 100%);
+      --bg: #0b0f17;
+      --card: #131b2a;
+      --card-border: #1e293b;
+      --card-hover-border: #334155;
+      --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      --line: #1e293b;
+      --primary: #60a5fa;
+      --primary-bg: rgba(59, 130, 246, 0.12);
+      --primary-border: rgba(96, 165, 250, 0.3);
+      --good: #34d399;
+      --good-bg: rgba(52, 211, 153, 0.12);
+      --good-border: rgba(52, 211, 153, 0.25);
+      --danger: #f87171;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --danger-border: rgba(248, 113, 113, 0.25);
+      --terminal-bg: #070a10;
+      --terminal-text: #f8fafc;
+      --terminal-line: #1a2333;
+      --code-inline-bg: #1e293b;
+      --code-inline-text: #38bdf8;
+      --code-inline-border: #334155;
     }
   }
 
-  * { box-sizing: border-box; }
-
-  body {
+  * {
+    box-sizing: border-box;
     margin: 0;
-    padding: 40px 20px;
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 0;
   }
 
-  main { max-width: 640px; margin: 0 auto; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    background-image: var(--bg-gradient);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 48px 20px;
+    -webkit-font-smoothing: antialiased;
+  }
 
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  /* Badge & Top Bar */
+  .badge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .chip-ai {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-border);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .chip-ai svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    background: var(--good-bg);
+    border: 1px solid var(--good-border);
+    color: var(--good);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--good);
+    position: relative;
+    display: inline-block;
+  }
+
+  .pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--good);
+    animation: ripple 2s infinite ease-out;
+  }
+
+  @keyframes ripple {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  /* Cards */
   .card {
     background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
     padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: var(--card-shadow);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .card:hover {
+    border-color: var(--card-hover-border);
+  }
+
+  .card-hero {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #10b981, #6366f1);
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin: 8px 0 10px;
+    color: var(--text-main);
+  }
+
+  .title-highlight {
+    background: linear-gradient(120deg, #38bdf8 0%, #3b82f6 50%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-desc {
+    color: var(--text-muted);
+    font-size: 15px;
     margin-bottom: 20px;
   }
 
-  h1 { margin: 0 0 4px; font-size: 26px; }
-  h2 { margin: 0 0 12px; font-size: 17px; }
-
-  .version {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    background: var(--good);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-  }
-  @media (prefers-color-scheme: dark) {
-    .version { color: #14171a; }
+  /* Metrics Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
   }
 
-  .status { color: var(--good); font-weight: 600; }
-  .muted  { color: var(--muted); }
-
-  code {
+  .metric-item {
     background: var(--bg);
     border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: ui-monospace, Consolas, monospace;
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-subtle);
+    margin-bottom: 4px;
+  }
+
+  .metric-value {
     font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .metric-value.accent {
+    color: var(--good);
+  }
+
+  /* Section Titles */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .section-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--primary-bg);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  p {
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    font-size: 14.5px;
+  }
+
+  /* Terminal Window */
+  .terminal {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-line);
+    border-radius: 12px;
+    margin: 16px 0;
+    overflow: hidden;
+    box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.4);
+  }
+
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--terminal-line);
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .dot-red    { background: #ef4444; }
+  .dot-yellow { background: #f59e0b; }
+  .dot-green  { background: #10b981; }
+
+  .terminal-title {
+    flex-grow: 1;
+    text-align: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    color: var(--text-subtle);
+    margin-right: 36px;
   }
 
   pre {
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 14px;
+    padding: 16px;
     overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--terminal-text);
   }
-  pre code { background: none; border: none; padding: 0; }
 
-  ol { padding-left: 22px; }
-  li { margin-bottom: 10px; }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  .cmd-prompt {
+    color: #64748b;
+    user-select: none;
+    margin-right: 6px;
+  }
+
+  .cmd-kw {
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
+  .cmd-str {
+    color: #34d399;
+  }
+
+  .cmd-flag {
+    color: #f472b6;
+  }
+
+  /* Outcomes Box */
+  .outcomes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 580px) {
+    .outcomes-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .outcome-card {
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .outcome-success {
+    background: var(--good-bg);
+    border: 1px solid var(--good-border);
+    color: var(--good);
+  }
+
+  .outcome-fail {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger);
+  }
+
+  .outcome-title {
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .outcome-desc {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  /* Interactive Steps List */
+  .steps-list {
+    list-style: none;
+    counter-reset: step-counter;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .step-item {
+    counter-increment: step-counter;
+    position: relative;
+    padding-left: 44px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .step-item::before {
+    content: counter(step-counter);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-border);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-item strong {
+    color: var(--text-main);
+  }
+
+  /* Inline Code */
+  code {
+    background: var(--code-inline-bg);
+    color: var(--code-inline-text);
+    border: 1px solid var(--code-inline-border);
+    border-radius: 5px;
+    padding: 2px 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  /* Callout box */
+  .callout {
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+    font-size: 13.5px;
+    color: var(--text-muted);
+  }
+
+  .callout-title {
+    color: var(--primary);
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  footer {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-subtle);
+    padding: 12px 0;
+  }
 </style>
 </head>
 <body>
 <main>
 
-  <div class="card">
-    <span class="version">VERSION 1.0.1</span>
-    <h1 style="margin-top:14px">Deploy Demo by 6FSchool<h1>
-    <p class="muted" style="margin:0">
-      A tiny page for practising an S3 &plus; CloudFront deploy pipeline.
+  <!-- Hero Header Card -->
+  <div class="card card-hero">
+    <div class="badge-row">
+      <div class="chip-ai">
+        <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 1 1 1v1.07A8.002 8.002 0 0 1 20 12v1a1 1 0 0 1-1 1h-1.07A8.002 8.002 0 0 1 10 21.93V23a1 1 0 0 1-2 0v-1.07A8.002 8.002 0 0 1 2 14v-1a1 1 0 0 1 1-1h1.07A8.002 8.002 0 0 1 11 4.07V3a1 1 0 0 1 1-1zm0 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+        AI Automated Workflow for CI Flow
+      </div>
+      <div class="status-pill">
+        <span class="pulse-dot"></span>
+        <span>SITE&#45;OK &bull; Passing</span>
+      </div>
+    </div>
+
+    <h1>AI-Automated <span class="title-highlight">CI/CD Pipeline</span></h1>
+    <p class="hero-desc">
+      Continuous integration &amp; cloud deployment monitor with automated health verification and zero-downtime rollback protection.
     </p>
-    <p style="margin:18px 0 0">
-      Health check: <span class="status">&check; passing</span>
-    </p>
+
+    <div class="metrics-grid">
+      <div class="metric-item">
+        <div class="metric-label">Release Version</div>
+        <div class="metric-value">v1.0.1</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-label">Deployment Target</div>
+        <div class="metric-value">AWS S3 &plus; CloudFront</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-label">Health Monitor</div>
+        <div class="metric-value accent">&check; Verified Active</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-label">Auto Rollback</div>
+        <div class="metric-value">Enabled (Self-Healing)</div>
+      </div>
+    </div>
   </div>
 
+  <!-- Pipeline Mechanics Card -->
   <div class="card">
-    <h2>How the pipeline checks this page</h2>
-    <p>After uploading, the workflow downloads the live page and looks for
-       one specific word inside it:</p>
-<pre><code>curl -sf https://YOUR-SITE/ -o page.html
-grep -q "SITE&#45;OK" page.html</code></pre>
-    <p class="muted">Marker found &rarr; deploy succeeds.<br>
-       Marker missing &rarr; deploy fails and the old version is restored.</p>
+    <div class="section-header">
+      <div class="section-icon">&target;</div>
+      <h2>How the AI CI Workflow Validates This Page</h2>
+    </div>
+    <p>
+      Following the deployment synchronization step, the automated CI pipeline initiates an HTTP probe against the live distribution endpoint and verifies the presence of the health canary string:
+    </p>
+
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="terminal-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <div class="terminal-title">ci-health-check.sh</div>
+      </div>
+      <pre><code><span class="cmd-prompt">$</span><span class="cmd-kw">curl</span> <span class="cmd-flag">-sf</span> https://YOUR-SITE/ <span class="cmd-flag">-o</span> page.html
+<span class="cmd-prompt">$</span><span class="cmd-kw">grep</span> <span class="cmd-flag">-q</span> <span class="cmd-str">"SITE&#45;OK"</span> page.html</code></pre>
+    </div>
+
+    <div class="outcomes-grid">
+      <div class="outcome-card outcome-success">
+        <div class="outcome-title">
+          <span>&check;</span> Marker Detected (Exit Code 0)
+        </div>
+        <div class="outcome-desc">
+          Deploy succeeds. The AI agent proceeds with CDN cache invalidation and marks release healthy.
+        </div>
+      </div>
+      <div class="outcome-card outcome-fail">
+        <div class="outcome-title">
+          <span>&cross;</span> Marker Absent (Exit Code &ne; 0)
+        </div>
+        <div class="outcome-desc">
+          Automated circuit breaker trips. Pipeline halts and restores previous stable revision immediately.
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- Interactive Testing Card -->
   <div class="card">
-    <h2>Try it yourself</h2>
-    <ol>
-      <li>Change <code>VERSION 1</code> above to <code>VERSION 2</code>,
-          commit and push. Watch the pipeline go green, then reload the
-          live site &mdash; you should see version 2.</li>
-      <li>Now break it on purpose. Find the
-          <code>&lt;!&minus;&minus; SITE&#45;OK &minus;&minus;&gt;</code>
-          comment near the top of this file and delete it. Push again.</li>
-      <li>Watch the deploy fail, then watch it put version 2 back by itself.
-          The live site never shows the broken page.</li>
-      <li>Put the marker back to return to normal.</li>
+    <div class="section-header">
+      <div class="section-icon">&flash;</div>
+      <h2>Simulate &amp; Test the CI Pipeline</h2>
+    </div>
+    <p>
+      You can test the self-healing and validation triggers through standard Git workflow commands:
+    </p>
+
+    <ol class="steps-list">
+      <li class="step-item">
+        <strong>Verify normal deployment:</strong> Update the release badge from <code>v1.0.1</code> to <code>v2.0.0</code> in this file, commit, and push. Observe the pipeline go green and verify live updates.
+      </li>
+      <li class="step-item">
+        <strong>Simulate failure &amp; rollback:</strong> Locate the <code>&lt;!&minus;&minus; SITE&#45;OK &minus;&minus;&gt;</code> canary marker near the top of this document and delete or alter it. Push the change.
+      </li>
+      <li class="step-item">
+        <strong>Observe automated recovery:</strong> The pipeline detects the missing health signature, rejects the release candidate, and safely restores the previous version without exposing broken downtime.
+      </li>
+      <li class="step-item">
+        <strong>Restore system health:</strong> Re-insert the marker comment to restore pipeline deployment readiness.
+      </li>
     </ol>
   </div>
 
+  <!-- Deep Dive / Encoding Explanation -->
   <div class="card">
-    <h2>Why the marker is written oddly on this page</h2>
-    <p>The check is a plain text search, so it matches the marker
-       <em>anywhere</em> in the file &mdash; including inside ordinary
-       sentences. If the name were spelled out normally in the text above,
-       deleting the real marker would still leave matches behind, and the
-       health check could never fail.</p>
-    <p>So every mention on this page except the real marker is written as
-       <code>SITE&amp;#45;OK</code>. The browser shows a normal hyphen;
-       <code>grep</code> sees something different. That keeps exactly
-       <strong>one</strong> match in the file.</p>
-    <p class="muted">Check it for yourself:
-       <code>grep -c "SITE&#45;OK" sample.html</code> should print
-       <code>1</code>.</p>
+    <div class="section-header">
+      <div class="section-icon">&key;</div>
+      <h2>Why the Marker Uses Entity Encoding</h2>
+    </div>
+    <p>
+      The validation check performs a direct literal string scan. If the canary word were written plainly across descriptive paragraphs or documentation code blocks, deleting the genuine health marker would still leave matches behind &mdash; preventing the failure circuit breaker from ever triggering.
+    </p>
+
+    <div class="callout">
+      <div class="callout-title">
+        <span>&info;</span> Entity Encoding Safeguard
+      </div>
+      Every reference throughout this document &mdash; except for the single health comment at the top &mdash; is rendered via the HTML entity <code>SITE&amp;#45;OK</code>. Browsers render a standard hyphen, while <code>grep</code> sees distinct byte sequences.
+    </div>
+
+    <p style="margin-bottom:0">
+      Validate the canary uniqueness locally:
+      <br>
+      <code>grep -c "SITE&#45;OK" index.html</code> &rarr; returns exactly <code>1</code>.
+    </p>
   </div>
 
+  <footer>
+    AI-Automated CI/CD Workflow &bull; Resilient Cloud Infrastructure Monitoring
+  </footer>
 
+</main>
 </body>
 </html>
