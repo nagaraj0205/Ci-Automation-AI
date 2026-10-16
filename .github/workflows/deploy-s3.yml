@@ -14,7 +14,7 @@ permissions:
 #dj
 env:
   FILE:     index.html
-  BUCKET:   ai-assisted-bucket-1
+  BUCKET:   ai-assisted-bucket-2
   BACKUP:   backups/index-previous.html
   REGION:   us-east-1
   DIST_ID:  EEM2RFN5EP0W4
