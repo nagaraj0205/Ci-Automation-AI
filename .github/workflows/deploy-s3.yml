@@ -18,7 +18,7 @@ env:
   BACKUP:   backups/index-previous.html
   REGION:   us-east-1
   DIST_ID:  E3E0XS9FDY65PR
-  SITE_URL: d1zujiupfwkwnl.cloudfront.net
+  SITE_URL: https://d1zujiupfwkwnl.cloudfront.net
   MARKER:   SITE-OK
 
 jobs:
@@ -38,6 +38,9 @@ jobs:
 
       - name: Check the file
         run: python check-html.py "$FILE"
+
+      - name: Back up the current version
+        run: aws s3 cp "s3://$BUCKET/$FILE" "s3://$BUCKET/$BACKUP"
 
       - name: Upload to S3
         run: aws s3 cp "$FILE" "s3://$BUCKET/$FILE" --cache-control no-cache
