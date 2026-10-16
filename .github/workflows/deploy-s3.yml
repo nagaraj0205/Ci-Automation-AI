@@ -19,7 +19,7 @@ env:
   REGION:   us-east-1
   DIST_ID:  E3E0XS9FDY65PR
   SITE_URL: https://d1zujiupfwkwnl.cloudfront.net
-  MARKER:   --SITE-OK
+  MARKER:   SITE-OK
 
 jobs:
   deploy:
